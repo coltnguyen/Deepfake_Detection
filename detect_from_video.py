@@ -121,7 +121,11 @@ def test_full_image_network(video_path, model_path, output_path,
     # Read and write
     reader = cv2.VideoCapture(video_path)
 
-    video_fn = video_path.split('/')[-1].split('.')[0]+'.avi'
+    # Get video filename without extension for output files
+    base_fn = video_path.split('/')[-1].split('.')[0]
+    video_fn = base_fn + '.avi'
+    txt_fn = base_fn + '_probability.txt'
+
     os.makedirs(output_path, exist_ok=True)
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     fps = reader.get(cv2.CAP_PROP_FPS)
@@ -133,9 +137,9 @@ def test_full_image_network(video_path, model_path, output_path,
 
     # Load model
     model = model_selection(modelname='xception', num_out_classes=2, dropout=0.5)
-	model.load_state_dict(torch.load(model_path))
-	if isinstance(model, torch.nn.DataParallel):
-		model = model.module
+    model.load_state_dict(torch.load(model_path))
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
     if cuda:
         model = model.cuda()
 
@@ -146,6 +150,8 @@ def test_full_image_network(video_path, model_path, output_path,
 
     # Frame numbers and length of output video
     frame_num = 0
+    total_fake_prob = 0.0
+    face_frames_count = 0
     assert start_frame < num_frames - 1
     end_frame = end_frame if end_frame else num_frames
     pbar = tqdm(total=end_frame-start_frame)
@@ -185,6 +191,11 @@ def test_full_image_network(video_path, model_path, output_path,
                                                     cuda=cuda)
             # ------------------------------------------------------------------
 
+            # Accumulate probability
+            fake_prob = output[0][1].item()
+            total_fake_prob += fake_prob
+            face_frames_count += 1
+
             # Text and bb
             x = face.left()
             y = face.top()
@@ -208,9 +219,25 @@ def test_full_image_network(video_path, model_path, output_path,
         cv2.waitKey(33)     # About 30 fps
         writer.write(image)
     pbar.close()
+
+    # Write probability results to text file
+    txt_output_path = join(output_path, txt_fn)
+    if face_frames_count > 0:
+        average_fake_prob = total_fake_prob / face_frames_count
+        result_text = f"Average Deepfake Probability: {average_fake_prob * 100:.2f}%"
+    else:
+        result_text = "No faces detected in the video."
+
+    try:
+        with open(txt_output_path, 'w') as f:
+            f.write(result_text)
+        print(f"Probability results saved to {txt_output_path}")
+    except Exception as e:
+        print(f"Error writing probability file: {e}")
+
     if writer is not None:
         writer.release()
-        print('Finished! Output saved under {}'.format(output_path))
+        print('Finished! Output video saved under {}'.format(join(output_path, video_fn)))
     else:
         print('Input video file was empty')
 

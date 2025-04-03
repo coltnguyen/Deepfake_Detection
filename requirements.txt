@@ -1,4 +1,5 @@
-opencv==3.4.2
-dlib==19.18.0
-numpy==1.17.3
+opencv-python
+dlib
+numpy
 pillow>=6.2.2
+tqdm

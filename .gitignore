@@ -102,3 +102,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Large files / Output / Models / Data (Add these lines)
+output/
+pretrained_model/*.pth
+pretrained_model/*.pkl
+videos/*.mp4
+*.avi 
